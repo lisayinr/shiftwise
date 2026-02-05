@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from app.workers import router as workers_router
 from app.shifts import router as shifts_router
 from app.availability import router as availability_router
+from app.schedules import router as schedules_router
 
 app = FastAPI(title="ShiftWise API")
 
@@ -12,3 +13,4 @@ def health():
 app.include_router(workers_router)
 app.include_router(shifts_router)
 app.include_router(availability_router)
+app.include_router(schedules_router)
