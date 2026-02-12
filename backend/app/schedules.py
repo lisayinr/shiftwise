@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from app.database import get_conn
 from app.scheduler import generate_schedule
@@ -12,7 +12,15 @@ class GenerateRequest(BaseModel):
 
 @router.post("/generate")
 def generate(req: GenerateRequest):
-    return generate_schedule(req.week_start_date)
+    result = generate_schedule(req.week_start_date)
+
+    if result["assignments_created"] == 0:
+        raise HTTPException(
+            status_code=400,
+            detail="No valid schedule could be generated for that week. Check worker availability and max shifts per week."
+        )
+
+    return result
 
 
 @router.get("/{schedule_id}/assignments")

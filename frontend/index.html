@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ShiftWise UI</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; max-width: 900px; margin: auto; }
+    input, button { padding: 8px; font-size: 14px; }
+    button { cursor: pointer; }
+    table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+    th, td { border: 1px solid #ddd; padding: 8px; }
+    th { background: #f4f4f4; }
+    .msg { margin-top: 12px; padding: 10px; background: #f8f8f8; }
+  </style>
+</head>
+<body>
+  <h1>ShiftWise</h1>
+
+  <label>Week start date (Monday):</label>
+  <input id="weekStart" type="date" />
+  <button id="generateBtn">Generate Schedule</button>
+
+  <div id="message" class="msg"></div>
+
+  <table id="resultsTable" style="display:none;">
+    <thead>
+      <tr>
+        <th>Assigned Date</th>
+        <th>Shift ID</th>
+        <th>Worker ID</th>
+      </tr>
+    </thead>
+    <tbody id="resultsBody"></tbody>
+  </table>
+
+  <script>
+    const API_BASE = "http://127.0.0.1:8000";
+
+    const message = document.getElementById("message");
+    const table = document.getElementById("resultsTable");
+    const tbody = document.getElementById("resultsBody");
+    const weekStart = document.getElementById("weekStart");
+    const btn = document.getElementById("generateBtn");
+
+    function showMessage(text) {
+      message.textContent = text;
+    }
+
+    function showAssignments(rows) {
+      tbody.innerHTML = "";
+      rows.forEach(r => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${r.assigned_date}</td>
+          <td>${r.shift_id}</td>
+          <td>${r.worker_id}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+      table.style.display = rows.length ? "table" : "none";
+    }
+
+    btn.addEventListener("click", async () => {
+      const dateVal = weekStart.value;
+      if (!dateVal) {
+        showMessage("Please select a week start date.");
+        return;
+      }
+
+      showMessage("Generating schedule...");
+      showAssignments([]);
+
+      try {
+        const genRes = await fetch(`${API_BASE}/schedules/generate`, {
+          method: "POST",
+          headers: {"Content-Type":"application/json"},
+          body: JSON.stringify({ week_start_date: dateVal })
+        });
+
+        const genData = await genRes.json();
+
+        if (!genRes.ok) {
+          showMessage(genData.detail || "Could not generate schedule.");
+          return;
+        }
+
+        showMessage(`Generated schedule ${genData.schedule_id}. Assignments created: ${genData.assignments_created}`);
+
+        const listRes = await fetch(`${API_BASE}/schedules/${genData.schedule_id}/assignments`);
+        const rows = await listRes.json();
+        showAssignments(rows);
+
+      } catch (err) {
+        showMessage("Error connecting to API. Make sure the backend is running.");
+      }
+    });
+  </script>
+</body>
+</html>
