@@ -12,6 +12,10 @@
     th, td { border: 1px solid #ddd; padding: 8px; }
     th { background: #f4f4f4; }
     .msg { margin-top: 12px; padding: 10px; background: #f8f8f8; }
+
+    #metricsTable { width: 100%; border-collapse: collapse; margin-top: 12px; }
+    #metricsTable th, #metricsTable td { border: 1px solid #ddd; padding: 8px; }
+    #metricsTable th { background: #f4f4f4; }
   </style>
 </head>
 <body>
@@ -34,12 +38,25 @@
     <tbody id="resultsBody"></tbody>
   </table>
 
+  <h2>Fairness Metrics</h2>
+  <table id="metricsTable">
+    <thead>
+      <tr>
+        <th>Worker</th>
+        <th>Total Assignments</th>
+        <th>Undesirable Assignments</th>
+      </tr>
+    </thead>
+    <tbody id="metricsBody"></tbody>
+  </table>
+
   <script>
     const API_BASE = "http://127.0.0.1:8000";
 
     const message = document.getElementById("message");
     const table = document.getElementById("resultsTable");
     const tbody = document.getElementById("resultsBody");
+    const metricsBody = document.getElementById("metricsBody");
     const weekStart = document.getElementById("weekStart");
     const btn = document.getElementById("generateBtn");
 
@@ -61,6 +78,33 @@
       table.style.display = rows.length ? "table" : "none";
     }
 
+    function clearMetrics() {
+      metricsBody.innerHTML = "";
+    }
+
+    async function loadMetrics(scheduleId) {
+      clearMetrics();
+
+      const res = await fetch(`${API_BASE}/metrics/schedule/${scheduleId}`);
+      const data = await res.json();
+
+      if (!res.ok) {
+        // If metrics endpoint fails, don't crash the UI
+        showMessage("Schedule generated, but could not load fairness metrics.");
+        return;
+      }
+
+      data.forEach(row => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${row.worker_name}</td>
+          <td>${row.total_assignments ?? 0}</td>
+          <td>${row.undesirable_assignments ?? 0}</td>
+        `;
+        metricsBody.appendChild(tr);
+      });
+    }
+
     btn.addEventListener("click", async () => {
       const dateVal = weekStart.value;
       if (!dateVal) {
@@ -70,6 +114,7 @@
 
       showMessage("Generating schedule...");
       showAssignments([]);
+      clearMetrics();
 
       try {
         const genRes = await fetch(`${API_BASE}/schedules/generate`, {
@@ -87,9 +132,13 @@
 
         showMessage(`Generated schedule ${genData.schedule_id}. Assignments created: ${genData.assignments_created}`);
 
+        // 1) Load assignments
         const listRes = await fetch(`${API_BASE}/schedules/${genData.schedule_id}/assignments`);
         const rows = await listRes.json();
         showAssignments(rows);
+
+        // 2) Load fairness metrics
+        await loadMetrics(genData.schedule_id);
 
       } catch (err) {
         showMessage("Error connecting to API. Make sure the backend is running.");
