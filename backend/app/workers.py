@@ -66,3 +66,16 @@ def delete_worker(worker_id: int):
     if deleted == 0:
         raise HTTPException(status_code=404, detail="Worker not found")
     return {"deleted": True}
+
+@router.put("/{worker_id}/deactivate")
+def deactivate_worker(worker_id: int):
+    conn = get_conn()
+    cur = conn.cursor()
+
+    cur.execute("UPDATE workers SET active=0 WHERE worker_id=%s", (worker_id,))
+    conn.commit()
+
+    cur.close()
+    conn.close()
+
+    return {"message": f"Worker {worker_id} marked inactive"}
