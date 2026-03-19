@@ -5,81 +5,165 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>ShiftWise UI</title>
   <style>
-    body { font-family: Arial, sans-serif; padding: 20px; max-width: 900px; margin: auto; }
-    input, button { padding: 8px; font-size: 14px; }
-    button { cursor: pointer; }
-    table { width: 100%; border-collapse: collapse; margin-top: 16px; }
-    th, td { border: 1px solid #ddd; padding: 8px; }
-    th { background: #f4f4f4; }
-    .msg { margin-top: 12px; padding: 10px; background: #f8f8f8; }
+    body {
+      font-family: Arial, sans-serif;
+      padding: 24px;
+      max-width: 1000px;
+      margin: auto;
+      background: #fafafa;
+      color: #222;
+    }
 
-    #metricsTable { width: 100%; border-collapse: collapse; margin-top: 12px; }
-    #metricsTable th, #metricsTable td { border: 1px solid #ddd; padding: 8px; }
-    #metricsTable th { background: #f4f4f4; }
+    h1, h2 {
+      margin-bottom: 8px;
+    }
+
+    .section {
+      background: white;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 20px;
+    }
+
+    .controls {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    input, button {
+      padding: 8px 10px;
+      font-size: 14px;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    .msg {
+      margin-top: 12px;
+      padding: 10px;
+      background: #f3f3f3;
+      border-radius: 6px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+      background: white;
+    }
+
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: left;
+    }
+
+    th {
+      background: #f0f0f0;
+    }
+
+    .small {
+      color: #666;
+      font-size: 13px;
+    }
   </style>
 </head>
 <body>
   <h1>ShiftWise</h1>
+  <p class="small">Generate a weekly schedule, review assignments, view fairness metrics, and export results.</p>
 
-  <label>Week start date (Monday):</label>
-  <input id="weekStart" type="date" />
-  <button id="generateBtn">Generate Schedule</button>
+  <div class="section">
+    <h2>Generate Schedule</h2>
+    <div class="controls">
+      <label for="weekStart">Week start date (Monday):</label>
+      <input id="weekStart" type="date" />
+      <button id="generateBtn">Generate Schedule</button>
+      <button id="exportBtn" disabled>Export CSV</button>
+    </div>
+    <div id="message" class="msg">Select a Monday date and generate a schedule.</div>
+  </div>
 
-  <div id="message" class="msg"></div>
+  <div class="section">
+    <h2>Schedule Assignments</h2>
+    <p class="small">This table shows the generated assignments for the selected week.</p>
+    <table id="resultsTable" style="display:none;">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Shift</th>
+          <th>Time</th>
+          <th>Worker</th>
+        </tr>
+      </thead>
+      <tbody id="resultsBody"></tbody>
+    </table>
+  </div>
 
-  <table id="resultsTable" style="display:none;">
-    <thead>
-      <tr>
-        <th>Assigned Date</th>
-        <th>Shift ID</th>
-        <th>Worker ID</th>
-      </tr>
-    </thead>
-    <tbody id="resultsBody"></tbody>
-  </table>
-
-  <h2>Fairness Metrics</h2>
-  <table id="metricsTable">
-    <thead>
-      <tr>
-        <th>Worker</th>
-        <th>Total Assignments</th>
-        <th>Undesirable Assignments</th>
-      </tr>
-    </thead>
-    <tbody id="metricsBody"></tbody>
-  </table>
+  <div class="section">
+    <h2>Fairness Metrics</h2>
+    <p class="small">This table shows total assignments and undesirable shifts for each worker.</p>
+    <table id="metricsTable">
+      <thead>
+        <tr>
+          <th>Worker</th>
+          <th>Total Assignments</th>
+          <th>Undesirable Assignments</th>
+        </tr>
+      </thead>
+      <tbody id="metricsBody"></tbody>
+    </table>
+  </div>
 
   <script>
     const API_BASE = "http://127.0.0.1:8000";
 
     const message = document.getElementById("message");
-    const table = document.getElementById("resultsTable");
-    const tbody = document.getElementById("resultsBody");
+    const resultsTable = document.getElementById("resultsTable");
+    const resultsBody = document.getElementById("resultsBody");
     const metricsBody = document.getElementById("metricsBody");
     const weekStart = document.getElementById("weekStart");
-    const btn = document.getElementById("generateBtn");
+    const generateBtn = document.getElementById("generateBtn");
+    const exportBtn = document.getElementById("exportBtn");
+
+    let currentScheduleId = null;
+    let currentAssignments = [];
 
     function showMessage(text) {
       message.textContent = text;
     }
 
-    function showAssignments(rows) {
-      tbody.innerHTML = "";
-      rows.forEach(r => {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td>${r.assigned_date}</td>
-          <td>${r.shift_id}</td>
-          <td>${r.worker_id}</td>
-        `;
-        tbody.appendChild(tr);
-      });
-      table.style.display = rows.length ? "table" : "none";
+    function clearAssignments() {
+      resultsBody.innerHTML = "";
+      resultsTable.style.display = "none";
+      currentAssignments = [];
+      exportBtn.disabled = true;
     }
 
     function clearMetrics() {
       metricsBody.innerHTML = "";
+    }
+
+    function showAssignments(rows) {
+      resultsBody.innerHTML = "";
+      currentAssignments = rows;
+
+      rows.forEach(r => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${r.assigned_date}</td>
+          <td>${r.shift_name}</td>
+          <td>${r.start_time} - ${r.end_time}</td>
+          <td>${r.worker_name}</td>
+        `;
+        resultsBody.appendChild(tr);
+      });
+
+      resultsTable.style.display = rows.length ? "table" : "none";
+      exportBtn.disabled = rows.length === 0;
     }
 
     async function loadMetrics(scheduleId) {
@@ -89,8 +173,7 @@
       const data = await res.json();
 
       if (!res.ok) {
-        // If metrics endpoint fails, don't crash the UI
-        showMessage("Schedule generated, but could not load fairness metrics.");
+        showMessage("Schedule generated, but fairness metrics could not be loaded.");
         return;
       }
 
@@ -98,4 +181,82 @@
         const tr = document.createElement("tr");
         tr.innerHTML = `
           <td>${row.worker_name}</td>
-          <td>$
+          <td>${row.total_assignments ?? 0}</td>
+          <td>${row.undesirable_assignments ?? 0}</td>
+        `;
+        metricsBody.appendChild(tr);
+      });
+    }
+
+    function exportAssignmentsToCSV() {
+      if (!currentAssignments.length) return;
+
+      const headers = ["Assigned Date", "Shift Name", "Start Time", "End Time", "Worker Name"];
+      const rows = currentAssignments.map(r => [
+        r.assigned_date,
+        r.shift_name,
+        r.start_time,
+        r.end_time,
+        r.worker_name
+      ]);
+
+      const csvContent = [
+        headers.join(","),
+        ...rows.map(row => row.map(value => `"${value}"`).join(","))
+      ].join("\n");
+
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `shiftwise_schedule_${currentScheduleId}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    exportBtn.addEventListener("click", exportAssignmentsToCSV);
+
+    generateBtn.addEventListener("click", async () => {
+      const dateVal = weekStart.value;
+
+      if (!dateVal) {
+        showMessage("Please select a week start date.");
+        return;
+      }
+
+      showMessage("Generating schedule...");
+      clearAssignments();
+      clearMetrics();
+
+      try {
+        const genRes = await fetch(`${API_BASE}/schedules/generate`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ week_start_date: dateVal })
+        });
+
+        const genData = await genRes.json();
+
+        if (!genRes.ok) {
+          showMessage(genData.detail || "Could not generate schedule.");
+          return;
+        }
+
+        currentScheduleId = genData.schedule_id;
+        showMessage(`Generated schedule ${genData.schedule_id}. Assignments created: ${genData.assignments_created}`);
+
+        const listRes = await fetch(`${API_BASE}/schedules/${genData.schedule_id}/assignments/detail`);
+        const rows = await listRes.json();
+        showAssignments(rows);
+
+        await loadMetrics(genData.schedule_id);
+
+      } catch (err) {
+        showMessage("Error connecting to API. Make sure the backend is running.");
+      }
+    });
+  </script>
+</body>
+</html>
