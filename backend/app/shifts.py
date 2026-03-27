@@ -7,7 +7,6 @@ router = APIRouter(prefix="/shifts", tags=["Shifts"])
 def _fix_shift_row(row: dict):
     if row is None:
         return None
-    # MySQL TIME may come back as timedelta; convert to "HH:MM:SS"
     row["start_time"] = str(row["start_time"])
     row["end_time"] = str(row["end_time"])
     return row

@@ -83,7 +83,7 @@ def generate_schedule(week_start_date: str) -> dict:
 
     for day_index in range(7):
         assigned_date = ws + timedelta(days=day_index)
-        day_of_week = day_index + 1  # 1=Mon .. 7=Sun
+        day_of_week = day_index + 1
 
         for sh in shifts:
             shift_start = _to_minutes(sh["start_time"])

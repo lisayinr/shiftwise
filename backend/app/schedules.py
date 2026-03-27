@@ -8,7 +8,7 @@ router = APIRouter(prefix="/schedules", tags=["Schedules"])
 
 
 class GenerateRequest(BaseModel):
-    week_start_date: str  # "YYYY-MM-DD" (should be Monday)
+    week_start_date: str  # "YYYY-MM-DD"
 
 
 @router.post("/generate")
